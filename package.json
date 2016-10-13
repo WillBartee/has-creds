@@ -1,0 +1,14 @@
+{
+  "name": "hascreds",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "": {
+    "express": "3.x"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
