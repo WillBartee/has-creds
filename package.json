@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "express": "3.x"
+    "express": "3.x",
+    "aws-sdk": "2.x",
+    "service-identity": "git+ssh://git@github.com:MassMedicalSociety/service-identity.git"
   },
   "scripts": {
     "start": "node index.js",
