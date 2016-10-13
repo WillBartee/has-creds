@@ -20,13 +20,11 @@ app.get('/env', function(req, res) {
 
 app.get('/s3get', function(req, res) {
   var S3 = new AWS.S3();
-  var reqParams = req.query.q
-  var s3params = {
-    Bucket: "pl.degaas.com",
-    Key: reqParams
-  }
   res.type('application/json');
-  S3.getObject(s3params).
+  S3.getObject({
+    Bucket: req.query.b,
+    Key: req.query.f
+  }).
   on('httpData', function(chunk) { res.write(chunk); }).
   on('httpDone', function() { res.end(); }).
   send();
