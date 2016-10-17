@@ -1,10 +1,15 @@
 var express = require('express');
 var AWS = require('aws-sdk');
 var http = require("http");
-AWS.config.update({
+
+var awsVars = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-});
+};
+console.log(awsVars);
+AWS.config.update(awsVars);
+console.log(AWS.config);
+
 
 // var serviceId = require('service-identity');
 var app = express();
@@ -117,7 +122,7 @@ app.get('/headers', function(req, res) {
     query: req.query,
     ip: req.ip
   };
-  res.send(requestObj);
+  res.send({request:requestObj, awscreds: AWS.config});
 });
 
 
