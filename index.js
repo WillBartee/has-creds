@@ -1,6 +1,10 @@
 var express = require('express');
 var AWS = require('aws-sdk');
 var http = require("http");
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
 
 // var serviceId = require('service-identity');
 var app = express();
