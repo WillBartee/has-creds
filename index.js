@@ -2,13 +2,10 @@ var express = require('express');
 var AWS = require('aws-sdk');
 var http = require("http");
 
-var awsVars = {
+AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-};
-console.log(awsVars);
-AWS.config.update(awsVars);
-console.log(AWS.config);
+});
 
 
 // var serviceId = require('service-identity');
@@ -125,33 +122,23 @@ app.get('/headers', function(req, res) {
   res.send({request:requestObj, awscreds: AWS.config});
 });
 
-
 app.get('/callOtherApp/:otherApp', function(req, res) {
-  var options = {
-   host: req.params.otherApp,
-   path: req.query.path
-  };
-
-  var req = http.get(options, function(res) {
-   console.log('STATUS: ' + res.statusCode);
-   console.log('HEADERS: ' + JSON.stringify(res.headers));
-
-   // Buffer the body entirely for processing as a whole.
-   var bodyChunks = [];
-   res.on('data', function(chunk) {
-     // You can process streamed parts here...
-     bodyChunks.push(chunk);
-   }).on('end', function() {
-     var body = Buffer.concat(bodyChunks);
-     console.log('BODY: ' + body);
-     // ...and/or process the entire body here.
-   })
+  var url = 'http://'+req.params.otherApp+'/'+req.query.path;
+  http.get(url, function(resp){
+    var body = '';
+    resp.on('data', function(chunk){
+      body += chunk;
+    });
+    resp.on('end', function(){
+      var fbResponse = JSON.parse(body);
+      console.log("Got a response: ");
+      res.send(body);
+    });
+  }).on('error', function(e){
+      console.log("Got an error: ", e);
   });
+});
 
-  req.on('error', function(e) {
-   console.log('ERROR: ' + e.message);
-  });
- });
 /*
 Needs to happen:
   I am a service I need credential I call "magic ip".
@@ -164,32 +151,5 @@ How it happens:
         How do we get that:
           from the api path     var basePath = '/latest/meta-data/iam/security-credentials/';
 */
-
-
-var shouldbe = {
-  "Code" : "Success",
-  "LastUpdated" : "2016-10-14T22:29:03Z",
-  "Type" : "AWS-HMAC",
-  "AccessKeyId" : "ASIAIL3AFBJXKKM7LE4Q",
-  "SecretAccessKey" : "Mk9qKFvHUoyYauemVEACc8Dn/Fj6j6hRkGiWFMDw",
-  "Token" : "FQoDYXdzELD//////////wEaDCsnxLYOcsyNCCkfJyK3A9c5d715M4e6aM+ZjW5GVC/NxT/hbitSSh+teHL/BN7CXlwZwVCEWrHlWgma1U9xel1V728/2lS5fCimwwN/40wUSiQM90GukZxuPHyki9N2SW+ThQ2AHdAbtdXBUIEuSP4PgMMuXhYIMruRKZkNCOWtexCljwkq86CPpvts5Sr1r/DTdZw6toiyyOAyI8tzkDHgan3oQe8CzJ6amGbM2T9pnEoIA63zQK9dHITKEC32BJ4u5Pqs2XGDS0fUfCP2hxy3D45Ghn+EBxzR089FVrlSB9KSXlddHvY09WPVJGA6M73MsYWXkQ1hn4oXy/4VxUHLGNwcjNo3RbwyCQO9l9JyCyDb4KJmf6YFPOoSTncxav21k9XrByUp5LBTEroO7PQ0eqMhI8COqSCaxMfAGbTBIK+PSIjlJfW7TedFzRwPQ5SWUifUnnR05n0moGSgNle/++mSeROqOR91E27+/qetDXKqb/B3F6GabkchZTkExWUBkh2bHAErAiFFdXOfz+j4pdha9qMwAzcQcKbReF5N4gXETJS09yDds5vAMwXXxRfJqRUvKyNdUky7dexKmzyiUsqhZAMo2biFwAU=",
-  "Expiration" : "2016-10-15T04:45:05Z"
-}
-
-var is = {
-  "ResponseMetadata": {
-      "RequestId": "5d44663c-9263-11e6-a66d-412fd94f50d3"
-    },
-    "Credentials": {
-      "AccessKeyId": "ASIAIS5PISCBB4MXXWYA",
-      "SecretAccessKey": "axf24ELG6ujf0vUIgtOmGnrbpv6fYeK4pzpC0Q9U",
-      "SessionToken": "FQoDYXdzELD//////////wEaDBTpeTORcKgUd7wg1iLLAYgQfEfb/nv01vi9TjDHUwaVfAK8geLb6woj6oeMfgMi1IdVFim6Al+PrifahEw61kfbtg8Us8ikIm67Tlg2/ARuRgbm24RD9E4REPgwjN/xgtzoErkJvsCCpnSn29RyKFmFaGg7MYV1u7kKoK0N9yBQBtvnc/lE2r9S57HJ9ia1fg6tzg84t6zxjPtzMnNsT9mdsYMHacYedCN8MYnHrHopF3fuO6OFcL0ObAwBabtA/C7EdwFFCKyyLLX1OjIy/a84TnfNfpGApugGKNbLhcAF",
-      "Expiration": "2016-10-15T00:10:14.000Z"
-    },
-    "AssumedRoleUser": {
-      "AssumedRoleId": "AROAJMEM7AI2BF5E2LHCK:Session1",
-      "Arn": "arn:aws:sts::937109661149:assumed-role/ContainerS3/Session1"
-    }
-}
 
 app.listen(process.env.PORT || 8080);
