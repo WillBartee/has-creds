@@ -79,7 +79,8 @@ app.get('/latest/meta-data/iam/security-credentials/', function(req, res) {
   //    1. endpoint on application.
   //    2. call deis to get the variable.
   // call kube master ip /api/v1/pods
-  //
+  var master = process.env.MASTER_IP || '10.171.128.9';
+
   res.type('text/plain');
   var responseData = "";
   var roleNames = JSON.parse(process.env.ROLE_NAMES).roles;
@@ -101,16 +102,46 @@ function transformSTS2Creds(stsData)
      Expiration: stsData.Credentials.Expiration,
      STSResponse: stsData
    };
- }
+}
 
-app.get('/fetch/otherAppEnvs/:otherAppIP', function(req, res) {
+app.get('/headers', function(req, res) {
   res.type('application/json');
-  res.send(req.headers);
+  var requestObj = {
+    headers: req.headers,
+    connection: req.conection,
+    params: req.params,
+    query: req.query,
+    ip: req.ip
+  };
+  res.send(requestObj);
 });
 
 
-app.get('/fetch/otherAppEnvs/:otherAppIP', function(req, res) {
-   var otherAppIP = req.params.otherAppIP
+app.get('/callOtherApp/:otherApp', function(req, res) {
+  var options = {
+   host: req.params.otherApp,
+   path: req.query.path
+  };
+
+  var req = http.get(options, function(res) {
+   console.log('STATUS: ' + res.statusCode);
+   console.log('HEADERS: ' + JSON.stringify(res.headers));
+
+   // Buffer the body entirely for processing as a whole.
+   var bodyChunks = [];
+   res.on('data', function(chunk) {
+     // You can process streamed parts here...
+     bodyChunks.push(chunk);
+   }).on('end', function() {
+     var body = Buffer.concat(bodyChunks);
+     console.log('BODY: ' + body);
+     // ...and/or process the entire body here.
+   })
+  });
+
+  req.on('error', function(e) {
+   console.log('ERROR: ' + e.message);
+  });
  });
 /*
 Needs to happen:
