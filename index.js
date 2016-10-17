@@ -7,9 +7,26 @@ var app = express();
 
 app.get('/env', function(req, res) {
   res.type('application/json'); // set content-type
-  res.send(JSON.stringify(process.env)); // send text response
+  if( req.query.sort )
+    res.send(sortObject(process.env)); // send text response
+  else
+    res.send(process.env);
 });
 
+function sortObject(obj) {
+    var arr = [];
+    for (var prop in obj) {
+        if (obj.hasOwnProperty(prop)) {
+            arr.push({
+                'key': prop,
+                'value': obj[prop]
+            });
+        }
+    }
+    arr.sort(function(a, b) { return a.value - b.value; });
+    //arr.sort(function(a, b) { a.value.toLowerCase().localeCompare(b.value.toLowerCase()); }); //use this to sort as strings
+    return arr; // returns array
+}
 // app.get('/healthcheck', function(req, res) {
 //   res.type('application/json'); // set content-type
 //   res.send(serviceId.whoami()); // send text response
@@ -50,10 +67,19 @@ app.get('/latest/meta-data/iam/security-credentials/:roleName', function(req, re
   });
 });
 
+
+// TODO RUN script/that/traverses/magicip/for/static/values/and/records/them/to/files.sh
+
 // When this is called we should only return the values that this app "has access to"
 // This is performed by determining what roles it thinks it should have.
 // call deis to get the CONFIG value of IAM_ROLE
 app.get('/latest/meta-data/iam/security-credentials/', function(req, res) {
+  var remoteIP = req.connection.remoteAddress;
+  // Go fetch IAM_ROLE env var.
+  //    1. endpoint on application.
+  //    2. call deis to get the variable.
+  // call kube master ip /api/v1/pods
+  //
   res.type('text/plain');
   var responseData = "";
   var roleNames = JSON.parse(process.env.ROLE_NAMES).roles;
@@ -76,6 +102,16 @@ function transformSTS2Creds(stsData)
      STSResponse: stsData
    };
  }
+
+app.get('/fetch/otherAppEnvs/:otherAppIP', function(req, res) {
+  res.type('application/json');
+  res.send(req.headers);
+});
+
+
+app.get('/fetch/otherAppEnvs/:otherAppIP', function(req, res) {
+   var otherAppIP = req.params.otherAppIP
+ });
 /*
 Needs to happen:
   I am a service I need credential I call "magic ip".
