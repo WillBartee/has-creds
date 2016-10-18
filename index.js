@@ -108,10 +108,15 @@ function transformSTS2Creds(stsData)
 }
 
 app.get('/headers', function(req, res) {
+  var ip = req.headers['x-forwarded-for'] ||
+       req.connection.remoteAddress ||
+       req.socket.remoteAddress ||
+       req.connection.socket.remoteAddress;
   res.type('application/json');
   var requestObj = {
     headers: req.headers,
     connection: req.conection,
+    ipv2: ip,
     params: req.params,
     query: req.query,
     ip: req.ip,
