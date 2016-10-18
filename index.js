@@ -3,7 +3,11 @@ var AWS = require('aws-sdk');
 var http = require("http");
 var https = require("https");
 var request = require('request');
-
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY_ID,
+  region: process.env.AWS_REGION
+});
 // var serviceId = require('service-identity');
 var app = express();
 
