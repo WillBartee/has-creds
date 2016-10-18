@@ -1,12 +1,8 @@
 var express = require('express');
 var AWS = require('aws-sdk');
 var http = require("http");
-
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-});
-
+var https = require("https");
+var request = require('request');
 
 // var serviceId = require('service-identity');
 var app = express();
@@ -61,12 +57,13 @@ app.get('/latest/meta-data/iam/security-credentials/:roleName', function(req, re
     RoleArn: "arn:aws:iam::"+process.env.AWS_ACCT+":role/"+req.params.roleName, /* required */
     RoleSessionName: "Session1" /* required */
   };
+  console.log(STS);
   STS.assumeRole(params, function(err, data) {
     if (err) {
       console.log(err); // an error occurred
       res.status(err.statusCode).send(err);
     } else {
-      console.log(data);
+      console.log("Found credentials", data.Credentials.AccessKeyId);
       var response = transformSTS2Creds(data);
       res.send(response);
     }
@@ -117,39 +114,124 @@ app.get('/headers', function(req, res) {
     connection: req.conection,
     params: req.params,
     query: req.query,
-    ip: req.ip
+    ip: req.ip,
+    ips: req.ips
   };
-  res.send({request:requestObj, awscreds: AWS.config});
+  res.send({request:requestObj});
 });
 
-app.get('/callOtherApp/:otherApp', function(req, res) {
-  var url = 'http://'+req.params.otherApp+'/'+req.query.path;
-  http.get(url, function(resp){
-    var body = '';
-    resp.on('data', function(chunk){
-      body += chunk;
-    });
-    resp.on('end', function(){
-      var fbResponse = JSON.parse(body);
-      console.log("Got a response: ");
-      res.send(body);
-    });
-  }).on('error', function(e){
-      console.log("Got an error: ", e);
+app.get('/app/:otherApp/headers', function(req, res) {
+  var otherApp = req.params.otherApp;
+  call_other_app(otherApp, function(data, err){
+    if(err) {
+      console.log(err);
+      res.status(404).send(err);
+    } else {
+      res.send(data);
+    }
   });
 });
 
-/*
-Needs to happen:
-  I am a service I need credential I call "magic ip".
+function call_other_app(otherApp, callback) {
+  var req = http.request({
+    method: "GET",
+    hostname: otherApp+".metatest.degaas.com",
+    path: "/headers"
+  }, function (res) {
+    var chunks = [];
+    res.on("data", function (chunk) { chunks.push(chunk); });
+    res.on("end", function () { callback(JSON.parse(Buffer.concat(chunks))); });
+  });
+  req.end();
+}
 
-How it happens:
-  I am the cluster local "magic ip spoofer".
-    I need to return on calls to me a valid set of credentials for a specific role.
-    For that response I must know:
-      What role it should have.
-        How do we get that:
-          from the api path     var basePath = '/latest/meta-data/iam/security-credentials/';
-*/
+app.get('/lookupServiceName/:one/:two/:three/:four/', function(req, res) {
+  var ip = req.params.one+"."+req.params.two+"."+req.params.three+"."+req.params.four;
+  reverse_service_name_lookup(ip, function(data, err){
+    if(err) {
+      console.log(err);
+      res.status(404).send(err);
+    } else {
+      res.send(data);
+    }
+  });
+});
+
+function reverse_service_name_lookup(ip, callback){
+  var username = "admin",
+      password = "3OzjGR83jYqMqWQM"
+      auth = "Basic " + new Buffer(username + ":" + password).toString("base64");
+  var options = {
+    method: "GET",
+    hostname: "10.171.128.9",
+    port: null,
+    path: "/api/v1/pods",
+    headers: {
+      authorization: auth
+    },
+    rejectUnauthorized: false,
+    requestCert: true,
+    agent: false
+  };
+
+  var req = https.request(options, function (res) {
+    var chunks = [];
+    res.on("data", function (chunk) {
+      chunks.push(chunk);
+    });
+
+    res.on("end", function () {
+      var body = Buffer.concat(chunks);
+      console.log("Completed");
+      var parsed = JSON.parse(body);
+      var filtered = parsed.items.filter(function(item){
+        return item.status.phase == "Running" && item.status.podIP == ip;
+      });
+      var names = [];
+      for (var pod in filtered ) {
+        var podData = filtered[pod];
+        names.push(podData.metadata.namespace);
+      }
+      callback(names);
+    });
+  });
+  req.end();
+}
+
+app.get('/getIamRole/:appName/', function(req, res) {
+  var appName = req.params.appName;
+  get_iam_role_from_deis(appName, function(data, err){
+    if(err) {
+      console.log(err);
+      res.status(404).send(err);
+    } else {
+      res.send(data);
+    }
+  });
+});
+
+function get_iam_role_from_deis(name, callback) {
+  var req = http.request({
+    method: "GET",
+    hostname: "deis.metatest.degaas.com",
+    path: "/v2/apps/"+name+"/config/",
+    headers: {
+      authorization: "token dccfac9dc212ca6da9e25f87a4903a0c8e49dc20"
+    }
+  }, function (res) {
+    var chunks = [];
+
+    res.on("data", function (chunk) { chunks.push(chunk); });
+    res.on("end", function () {
+      var parsed = JSON.parse(Buffer.concat(chunks));
+      if (parsed.values["IAM_ROLE"]) {
+        callback(parsed.values["IAM_ROLE"]);
+      } else {
+        callback(null, {error: "Service does not have the required configuration value."});
+      }
+    });
+  });
+  req.end();
+}
 
 app.listen(process.env.PORT || 8080);
