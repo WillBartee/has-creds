@@ -168,11 +168,11 @@ app.get('/lookupServiceName/:one/:two/:three/:four/', function(req, res) {
 
 function reverse_service_name_lookup(ip, callback){
   var username = "admin",
-      password = "3OzjGR83jYqMqWQM"
+      password = process.env.K8S_STR
       auth = "Basic " + new Buffer(username + ":" + password).toString("base64");
   var options = {
     method: "GET",
-    hostname: "10.171.128.9",
+    hostname: process.env.MASTER_IP,
     port: null,
     path: "/api/v1/pods",
     headers: {
@@ -222,10 +222,10 @@ app.get('/getIamRole/:appName/', function(req, res) {
 function get_iam_role_from_deis(name, callback) {
   var req = http.request({
     method: "GET",
-    hostname: "deis.metatest.degaas.com",
+    hostname: "deis."+process.env.DEIS_DOMAIN,
     path: "/v2/apps/"+name+"/config/",
     headers: {
-      authorization: "token dccfac9dc212ca6da9e25f87a4903a0c8e49dc20"
+      authorization: "token "+process.env.DEIS_TOKEN
     }
   }, function (res) {
     var chunks = [];
