@@ -81,12 +81,30 @@ app.get('/latest/meta-data/iam/security-credentials/:roleName', function(req, re
 // This is performed by determining what roles it thinks it should have.
 // call deis to get the CONFIG value of IAM_ROLE
 app.get('/latest/meta-data/iam/security-credentials/', function(req, res) {
-  var remoteIP = req.connection.remoteAddress;
   // Go fetch IAM_ROLE env var.
   //    1. endpoint on application.
   //    2. call deis to get the variable.
   // call kube master ip /api/v1/pods
-  var master = process.env.MASTER_IP || '10.171.128.9';
+  var remoteIP = req.connection.remoteAddress;
+  // reverse_service_name_lookup(remoteIP, function(data, err){
+  //   if(err) {
+  //     // Should passthrough or mimic failure.
+  //     res.status(404).send({msg: "failed to get service name from k8s", err: err});
+  //   } else {
+  //     get_iam_role_from_deis(appName, function(data, err){
+  //       if(err) {
+  //         console.log(err);
+  //         res.status(404).send({msg: "unable to find configvalue from deis", err: err});
+  //       } else {
+  //         //TODO check to see if this is a valid role.
+  //         // is call sts, and possibly cache the result.
+  //         res.send(data);
+  //       }
+  //     });
+  //   }
+  // });
+
+  var master = process.env.MASTER_IP || '10.1.128.9';
 
   res.type('text/plain');
   var responseData = "";
@@ -129,27 +147,28 @@ app.get('/headers', function(req, res) {
   res.send({request:requestObj});
 });
 
-app.get('/app/:otherApp/headers', function(req, res) {
-  var otherApp = req.params.otherApp;
-  call_other_app(otherApp, function(data, err){
+app.get('/app/:otherApp', function(req, res) {
+  var params = {
+    method: "GET",
+    hostname: req.params.otherApp+"."+process.env.ROUTE_NAME,
+    path: "/"+req.query.path
+  };
+  call_other_app(params, function(data, err){
     if(err) {
       console.log(err);
       res.status(404).send(err);
     } else {
-      res.send(data);
+      res.type('application/json');
+      res.send(JSON.parse(data));
     }
   });
 });
 
-function call_other_app(otherApp, callback) {
-  var req = http.request({
-    method: "GET",
-    hostname: otherApp+".metatest.degaas.com",
-    path: "/headers"
-  }, function (res) {
+function call_other_app(params, callback) {
+  var req = http.request(params, function (res) {
     var chunks = [];
     res.on("data", function (chunk) { chunks.push(chunk); });
-    res.on("end", function () { callback(JSON.parse(Buffer.concat(chunks))); });
+    res.on("end", function () { callback(Buffer.concat(chunks)); });
   });
   req.end();
 }
@@ -167,16 +186,14 @@ app.get('/lookupServiceName/:one/:two/:three/:four/', function(req, res) {
 });
 
 function reverse_service_name_lookup(ip, callback){
-  var username = "admin",
-      password = process.env.K8S_STR
-      auth = "Basic " + new Buffer(username + ":" + password).toString("base64");
+  var token = new Buffer("admin:"+process.env.K8S_STR).toString("base64");
   var options = {
     method: "GET",
     hostname: process.env.MASTER_IP,
     port: null,
     path: "/api/v1/pods",
     headers: {
-      authorization: auth
+      authorization: "Basic " + token
     },
     rejectUnauthorized: false,
     requestCert: true,
@@ -208,7 +225,14 @@ function reverse_service_name_lookup(ip, callback){
 }
 
 app.get('/getIamRole/:appName/', function(req, res) {
-  var appName = req.params.appName;
+  var params = {
+    method: "GET",
+    hostname: "deis."+process.env.ROUTE_NAME,
+    path: "/v2/apps/"+req.params.appName+"/config/",
+    headers: {
+      authorization: "token "+process.env.DEIS_TOKEN
+    }
+  };
   get_iam_role_from_deis(appName, function(data, err){
     if(err) {
       console.log(err);
@@ -219,15 +243,8 @@ app.get('/getIamRole/:appName/', function(req, res) {
   });
 });
 
-function get_iam_role_from_deis(name, callback) {
-  var req = http.request({
-    method: "GET",
-    hostname: "deis."+process.env.DEIS_DOMAIN,
-    path: "/v2/apps/"+name+"/config/",
-    headers: {
-      authorization: "token "+process.env.DEIS_TOKEN
-    }
-  }, function (res) {
+function get_iam_role_from_deis(params, callback) {
+  var req = http.request(params, function (res) {
     var chunks = [];
 
     res.on("data", function (chunk) { chunks.push(chunk); });
