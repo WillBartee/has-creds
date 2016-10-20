@@ -148,9 +148,12 @@ app.get('/headers', function(req, res) {
 });
 
 app.get('/app/:otherApp', function(req, res) {
+  var hostname = req.query.dns == true
+      ? req.params.otherApp+"."+process.env.ROUTE_NAME
+      : req.params.otherApp;
   var params = {
     method: "GET",
-    hostname: req.params.otherApp+"."+process.env.ROUTE_NAME,
+    hostname: hostname,
     path: "/"+req.query.path
   };
   call_other_app(params, function(data, err){
